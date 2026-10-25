@@ -1,0 +1,22 @@
+# 개인 백업과 거래 자료
+*backup*.json
+*백업*.json
+*.csv
+*.xlsx
+*.xls
+*.db
+*.sqlite
+*.sqlite3
+# 비밀 설정과 임시 파일
+.env
+.env.*
+*.log
+*.zip
+node_modules/
+work/
+.openai/
+.wrangler/
+.sites-runtime/
+.git-credentials
+.DS_Store
+Thumbs.db
