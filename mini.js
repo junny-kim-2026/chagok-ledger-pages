@@ -1,13 +1,14 @@
 'use strict';
-function emptyMiniLedgers(){return Array.from({length:3},(_,i)=>({name:'미니 가계부 '+(i+1),entries:[]}));}
+function emptyMiniLedgers(){return Array.from({length:4},(_,i)=>({name:'미니 가계부 '+(i+1),entries:[]}));}
 let miniLedgers=emptyMiniLedgers(),miniBook=0,miniEditing=null;
 function validateMiniLedgers(data){
- const books=data.version<4&&data.miniLedgers===undefined?emptyMiniLedgers():data.miniLedgers;
- if(!Array.isArray(books)||books.length!==3)throw Error('미니 가계부 백업은 3개여야 합니다.');
+ let books=data.version<4&&data.miniLedgers===undefined?emptyMiniLedgers():data.miniLedgers;
+ if(data.version===4&&Array.isArray(books)&&books.length===3)books=[...books,emptyMiniLedgers()[3]];
+ if(!Array.isArray(books)||books.length!==4)throw Error('미니 가계부 백업은 4개여야 합니다.');
  return books.map(book=>{if(!book||typeof book.name!=='string'||!book.name.trim()||book.name.length>30||!Array.isArray(book.entries)||book.entries.length>100000)throw Error('미니 가계부 이름과 내역을 확인해 주세요.');const rows=book.entries.map(validateEntry);if(new Set(rows.map(r=>r.id)).size!==rows.length)throw Error('미니 가계부에 중복된 기록이 있습니다.');totals(rows);return {name:book.name.trim(),entries:rows};});
 }
 function saveMiniBook(index,book){
- if(!Number.isInteger(index)||index<0||index>2)throw Error('미니 가계부를 확인해 주세요.');
+ if(!Number.isInteger(index)||index<0||index>3)throw Error('미니 가계부를 확인해 주세요.');
  commit(entries,{minis:miniLedgers.map((v,i)=>i===index?book:v)});
 }
 function renderMiniLedgers(){
@@ -30,7 +31,7 @@ function openMiniEntry(index,entry){
 }
 function initMiniLedgers(){
  const grid=$('miniGrid');
- for(let i=0;i<3;i++){
+ for(let i=0;i<4;i++){
   const card=node('article',undefined,'mini-card'),head=node('div',undefined,'mini-head'),title=node('h4');title.id='miniName'+i;
   const rename=node('button','이름 변경');rename.id='miniRename'+i;rename.onclick=()=>{miniBook=i;$('miniNameInput').value=miniLedgers[i].name;$('miniNameError').textContent='';$('miniNameDialog').showModal();$('miniNameInput').focus();};
   head.append(title,rename);const summary=node('dl',undefined,'mini-summary');
