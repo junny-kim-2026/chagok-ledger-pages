@@ -23,3 +23,5 @@
 .mini-card:nth-child(4){border-top-color:#cf9142}
 
 .records + .mini-section{margin-top:24px}
+
+.quick-nav{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:0 0 24px}.quick-nav a{display:flex;align-items:center;justify-content:center;min-height:52px;padding:12px;border:1px solid #c8d8f3;border-radius:12px;background:#fff;color:#3158b9;font-weight:700;text-align:center}.quick-nav a:hover{background:#eaf0ff;border-color:#8daee7}#miniLedgers,#memoPanel,#calculator{scroll-margin-top:24px}@media(max-width:760px){.quick-nav{grid-template-columns:repeat(2,minmax(0,1fr))}}
