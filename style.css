@@ -27,3 +27,6 @@
 .quick-nav{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:0 0 24px}.quick-nav a{display:flex;align-items:center;justify-content:center;min-height:52px;padding:12px;border:1px solid #c8d8f3;border-radius:12px;background:#fff;color:#3158b9;font-weight:700;text-align:center}.quick-nav a:hover{background:#eaf0ff;border-color:#8daee7}#miniLedgers,#memoPanel,#calculator{scroll-margin-top:24px}@media(max-width:760px){.quick-nav{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 .mini-description{margin-top:6px;font-size:.95rem;line-height:1.65;color:#526581;white-space:pre-wrap;overflow-wrap:anywhere}
+
+/* Keep entry windows at the top of the usable screen and scroll their fields. */
+dialog{position:fixed;inset:auto 0 auto;top:calc(var(--dialog-visible-top,0px) + 12px);margin:0 auto;max-height:calc(var(--dialog-visible-height,100dvh) - 24px);overflow-y:auto;overscroll-behavior:contain;scroll-padding-block:16px}dialog input,dialog select,dialog textarea,dialog button{scroll-margin-block:16px}@media(max-width:760px),(max-height:600px){dialog{padding:18px;border-radius:16px}dialog form{gap:14px}dialog h2{margin-bottom:12px}dialog .field{gap:6px}}
