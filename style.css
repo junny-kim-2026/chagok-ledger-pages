@@ -30,3 +30,5 @@
 
 /* Keep entry windows at the top of the usable screen and scroll their fields. */
 dialog{position:fixed;inset:auto 0 auto;top:calc(var(--dialog-visible-top,0px) + 12px);margin:0 auto;max-height:calc(var(--dialog-visible-height,100dvh) - 24px);overflow-y:auto;overscroll-behavior:contain;scroll-padding-block:16px}dialog input,dialog select,dialog textarea,dialog button{scroll-margin-block:16px}@media(max-width:760px),(max-height:600px){dialog{padding:18px;border-radius:16px}dialog form{gap:14px}dialog h2{margin-bottom:12px}dialog .field{gap:6px}}
+
+#entryDialog,#miniDialog{overflow-y:scroll;touch-action:pan-y;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch}.dialog-scroll-tools{position:sticky;top:0;z-index:2;display:flex;gap:8px;padding:8px 0;background:#fff;border-bottom:1px solid #dce5f3;margin-bottom:10px}.dialog-scroll-tools button{flex:1;font-size:.95rem;font-weight:700;color:#3158b9;background:#edf3ff;min-height:46px}.dialog-scroll-help{font-size:.89rem;color:#65748d;margin-bottom:16px}
