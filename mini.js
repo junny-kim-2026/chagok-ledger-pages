@@ -28,7 +28,7 @@ function renderMiniLedgers(){
  });
 }
 function openMiniEntry(index,entry){
- miniBook=index;miniEditing=entry?.id||null;const f=$('miniForm');f.reset();f.elements.type.value=entry?.type||'expense';f.elements.amount.value=entry?money(entry.amount):'';f.elements.date.value=entry?.date||today();f.elements.memo.value=entry?.memo||'';$('miniEntryTitle').textContent=miniLedgers[index].name+' · '+(entry?'내역 수정':'입출금 기록');$('miniError').textContent='';$('miniDialog').showModal();f.elements.amount.focus();
+ miniBook=index;miniEditing=entry?.id||null;const f=$('miniForm');f.reset();f.elements.type.value=entry?.type||'expense';f.elements.amount.value=entry?money(entry.amount):'';f.elements.date.value=entry?.date||today();f.elements.memo.value=entry?.memo||'';$('miniEntryTitle').textContent=miniLedgers[index].name+' · '+(entry?'내역 수정':'입출금 기록');$('miniError').textContent='';$('miniDialog').showModal();if(entry)f.elements.amount.focus();else $('miniEntryTitle').focus();
 }
 function initMiniLedgers(){
  const grid=$('miniGrid');
