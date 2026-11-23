@@ -53,6 +53,7 @@ function scrollEntryDialog(id,direction){
 function initDialogScrollButtons(){
  document.querySelectorAll('[data-scroll-dialog]').forEach(button=>{button.onclick=()=>scrollEntryDialog(button.dataset.scrollDialog,Number(button.dataset.direction));});
 }
+function fieldTopScroll(top,fieldTop){return fieldTop-top-12;}
 function initDialogVisibility(){
  const dialogs=Array.from(document.querySelectorAll('dialog'));
  const adjust=()=>{
@@ -65,11 +66,13 @@ function initDialogVisibility(){
    if(scroller!==dialog&&!scroller.contains(active))continue;
    const box=scroller.getBoundingClientRect(),field=(active.closest?.('.field')||active).getBoundingClientRect();
    const top=Math.max(box.top,offset),bottom=Math.min(box.bottom,offset+height);
-   scroller.scrollTop+=dialogFieldScroll(top,bottom,field.top,field.bottom);
+   const writing=active.matches('input:not([type=radio]):not([type=checkbox]),select,textarea');
+   const compact=(window.innerWidth||1024)<=760||height<=600;
+   scroller.scrollTop+=writing&&compact?fieldTopScroll(top,field.top):dialogFieldScroll(top,bottom,field.top,field.bottom);
   }
  };
  const schedule=()=>{if(window.requestAnimationFrame)window.requestAnimationFrame(adjust);else adjust();};
- for(const dialog of dialogs){dialog.addEventListener('focusin',schedule);dialog.addEventListener('close',()=>{dialog.scrollTop=0;const form=dialog.querySelector?.('form');if(form)form.scrollTop=0;});}
+ for(const dialog of dialogs){dialog.addEventListener('focusin',schedule);dialog.addEventListener('input',schedule);dialog.addEventListener('close',()=>{dialog.scrollTop=0;const form=dialog.querySelector?.('form');if(form)form.scrollTop=0;});}
  window.addEventListener('resize',schedule);window.visualViewport?.addEventListener('resize',schedule);schedule();
 }
 function init(){initDialogVisibility();initDialogScrollButtons();initMiniLedgers();initNotes();initRecurring();const f=$('form');CATEGORIES.forEach(c=>f.elements.category.append(node('option',c)));load();render();$('search').oninput=()=>render();$('clearSearch').onclick=()=>{$('search').value='';render();$('search').focus();};$('add').onclick=()=>openEntry();document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{mode=b.dataset.mode;render();});$('prev').onclick=()=>{date=shiftDate(date,mode,-1);render();};$('next').onclick=()=>{date=shiftDate(date,mode,1);render();};$('today').onclick=()=>{date=today();render();};$('jump').onchange=e=>{const next=jumpDate(e.target.value,mode);if(next){date=next;render();}else{toast('1900년부터 2100년까지의 날짜를 선택해 주세요.');render();}};f.querySelectorAll('[name=type]').forEach(r=>r.onchange=()=>{f.elements.category.value=f.elements.type.value==='income'?'급여':'식비';});$('cancel').onclick=()=>$('entryDialog').close();f.elements.amount.oninput=()=>formatAmountInput(f.elements.amount);f.onsubmit=e=>{e.preventDefault();try{const r=validateEntry({id:editing||(globalThis.crypto?.randomUUID?.()||Date.now().toString(36)+'-'+Math.random().toString(36).slice(2)),date:f.elements.date.value,type:f.elements.type.value,amount:parseAmount(f.elements.amount.value),category:f.elements.category.value,memo:f.elements.memo.value.trim()});commit([...entries.filter(x=>x.id!==r.id),r]);date=r.date;if(editing)$('search').value='';render();$('formError').textContent='';if(e.submitter?.id==='saveAnother'&&!editing){f.elements.amount.value='';f.elements.memo.value='';f.elements.amount.focus();toast('저장했습니다. 다음 내역을 입력해 주세요.');}else{$('entryDialog').close();toast(editing?'기록을 수정했습니다.':'기록을 저장했습니다.');}}catch(err){$('formError').textContent=err.message;}};
