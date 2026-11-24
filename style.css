@@ -40,3 +40,5 @@ dialog:has(form)>h2,dialog:has(form)>.dialog-scroll-tools{flex-shrink:0}dialog:h
 @media(max-width:760px),(max-height:600px){dialog:has(form)>form::after{content:'';display:block;flex:0 0 max(160px,calc(var(--dialog-visible-height,100dvh) - 150px));pointer-events:none}dialog:has(form)>form{overflow-anchor:none}dialog .field:focus-within{background:#edf3ff;border-radius:10px;outline:2px solid #94b1ed;outline-offset:3px}}
 
 .mini-card:nth-child(5){border-top-color:#3e96a5}.mini-card:nth-child(6){border-top-color:#c77491}
+
+.records-toggle{cursor:pointer;padding:22px 25px;min-height:64px;color:var(--ink)}.records-toggle::marker{color:var(--blue)}.records-toggle h3{display:inline;margin-right:12px}.records-toggle-hint{display:block;margin-top:6px;font-size:.89rem;color:var(--muted)}.records-toggle:hover{background:#f7f9fd}.records-toggle:focus-visible{outline-offset:-4px}@media(max-width:480px){.records-toggle{padding:20px}.records-toggle #recordPeriod{display:block;margin-top:8px}}
