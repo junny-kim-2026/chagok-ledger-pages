@@ -4,15 +4,56 @@ let miniLedgers=emptyMiniLedgers(),miniBook=0,miniEditing=null;
 const miniMonths=Array(6).fill('');
 const miniFilters=Array(6).fill('all');
 function miniEditRows(rows,month,kind){return rows.filter(r=>kind==='opening'?r.date<month+'-01':r.date.startsWith(month)&&(kind==='all'||r.type===kind));}
-function showMiniAmountEditor(index,kind){miniFilters[index]=kind;renderMiniLedgers();$('miniDetails'+index).open=true;$('miniCount'+index).focus();}
+function showMiniAmountEditor(index,kind){if(kind!=='all'){openMiniTotalEditor(index,kind);return;}miniFilters[index]='all';renderMiniLedgers();$('miniDetails'+index).open=true;$('miniCount'+index).focus();}
 function miniSelectedMonth(index){return miniMonths[index]||today().slice(0,7);}
-function miniMonthBalance(rows,month){return periodBalance(rows,'month',month+'-01');}
+function miniMonthBalance(rows,month,adjustments={}){
+ const result=periodBalance(rows,'month',month+'-01');
+ for(const [key,a] of Object.entries(adjustments)){
+  if(key<month)result.opening+=a.opening+a.income-a.expense;
+  if(key===month){result.opening+=a.opening;result.income+=a.income;result.expense+=a.expense;}
+ }
+ result.balance=result.opening+result.income-result.expense;return result;
+}
+function validateMiniAdjustments(source,rows){
+ if(source===undefined)return {};
+ if(!source||typeof source!=='object'||Array.isArray(source)||Object.keys(source).length>2412)throw Error('미니 가계부 수정 금액을 확인해 주세요.');
+ const clean={};let magnitude=rows.reduce((sum,r)=>sum+r.amount,0);
+ for(const [month,value] of Object.entries(source)){
+  if(!validDate(month+'-01')||!value||typeof value!=='object')throw Error('수정 금액의 월을 확인해 주세요.');
+  const item={};for(const key of ['opening','income','expense']){const n=value[key];if(!Number.isSafeInteger(n))throw Error('수정 금액을 확인해 주세요.');item[key]=n;magnitude+=Math.abs(n);}
+  if(!Number.isSafeInteger(magnitude)||magnitude>Number.MAX_SAFE_INTEGER/4)throw Error('합계가 계산 가능한 범위를 넘습니다.');
+  clean[month]=item;
+ }
+ return clean;
+}
+let miniTotalEditing=null;
+function parseMiniTotal(text,kind){
+ const raw=text.trim();if(!/^-?(?:\d+|\d{1,3}(?:,\d{3})+)$/.test(raw))throw Error('숫자로 금액을 입력해 주세요.');
+ const amount=Number(raw.replaceAll(',',''));if(!Number.isSafeInteger(amount)||Math.abs(amount)>999999999999||(kind!=='opening'&&amount<0))throw Error(kind==='opening'?'금액을 확인해 주세요.':'0원 이상의 금액을 입력해 주세요.');return amount;
+}
+function openMiniTotalEditor(index,kind){
+ const month=miniSelectedMonth(index),book=miniLedgers[index],sum=miniMonthBalance(book.entries,month,book.adjustments);
+ miniTotalEditing={index,kind,month,raw:lastRaw};
+ const label={opening:'전월 이월금',income:'이번 달 수입',expense:'이번 달 지출'}[kind];
+ $('miniTotalTitle').textContent=label+' 수정';$('miniTotalContext').textContent=book.name+' · '+Number(month.slice(0,4))+'년 '+Number(month.slice(5))+'월';
+ $('miniTotalAmount').value=money(sum[kind]);$('miniTotalAmount').inputMode=kind==='opening'?'text':'numeric';$('miniTotalError').textContent='';
+ $('miniTotalDialog').showModal();$('miniTotalAmount').focus();$('miniTotalAmount').select?.();
+}
+function saveMiniTotal(value){
+ if(!miniTotalEditing)throw Error('수정할 금액을 다시 선택해 주세요.');
+ const {index,kind,month,raw}=miniTotalEditing;if(raw!==lastRaw)throw Error('다른 창에서 기록이 바뀌었어요. 취소 후 다시 수정해 주세요.');
+ const book=miniLedgers[index],amount=parseMiniTotal(value,kind),sum=miniMonthBalance(book.entries,month,book.adjustments),adjustments={...book.adjustments};
+ const item={opening:0,income:0,expense:0,...adjustments[month]};item[kind]+=amount-sum[kind];
+ if(Object.values(item).every(n=>n===0))delete adjustments[month];else adjustments[month]=item;
+ saveMiniBook(index,{...book,adjustments});miniTotalEditing=null;
+}
+
 function selectMiniMonth(index,month){if(!validDate(month+'-01'))return;miniMonths[index]=month;renderMiniLedgers();}
 function validateMiniLedgers(data){
  let books=data.version<4&&data.miniLedgers===undefined?emptyMiniLedgers():data.miniLedgers;
  if(Array.isArray(books)&&((data.version===4&&books.length===3)||(data.version===5&&books.length===4)))books=[...books,...emptyMiniLedgers().slice(books.length)];
  if(!Array.isArray(books)||books.length!==6)throw Error('미니 가계부 백업은 6개여야 합니다.');
- return books.map(book=>{if(!book||typeof book.name!=='string'||!book.name.trim()||book.name.length>30||!Array.isArray(book.entries)||book.entries.length>100000)throw Error('미니 가계부 이름과 내역을 확인해 주세요.');const rows=book.entries.map(validateEntry);if(new Set(rows.map(r=>r.id)).size!==rows.length)throw Error('미니 가계부에 중복된 기록이 있습니다.');totals(rows);return {name:book.name.trim(),entries:rows};});
+ return books.map(book=>{if(!book||typeof book.name!=='string'||!book.name.trim()||book.name.length>30||!Array.isArray(book.entries)||book.entries.length>100000)throw Error('미니 가계부 이름과 내역을 확인해 주세요.');const rows=book.entries.map(validateEntry);if(new Set(rows.map(r=>r.id)).size!==rows.length)throw Error('미니 가계부에 중복된 기록이 있습니다.');totals(rows);return {name:book.name.trim(),entries:rows,adjustments:validateMiniAdjustments(book.adjustments,rows)};});
 }
 function saveMiniBook(index,book){
  if(!Number.isInteger(index)||index<0||index>5)throw Error('미니 가계부를 확인해 주세요.');
@@ -20,7 +61,7 @@ function saveMiniBook(index,book){
 }
 function renderMiniLedgers(){
  miniLedgers.forEach((book,i)=>{
-  $('miniName'+i).textContent=book.name;const month=miniSelectedMonth(i),sum=miniMonthBalance(book.entries,month),rows=miniEditRows(book.entries,month,miniFilters[i]);
+  $('miniName'+i).textContent=book.name;const month=miniSelectedMonth(i),sum=miniMonthBalance(book.entries,month,book.adjustments),rows=miniEditRows(book.entries,month,miniFilters[i]);
   $('miniMonth'+i).value=month;$('miniopening'+i).textContent=storageBlocked?'—':money(sum.opening)+'원';
   $('miniPrev'+i).disabled=month==='1900-01';$('miniNext'+i).disabled=month==='2100-12';
   for(const key of ['income','expense','balance'])$('mini'+key+i).textContent=storageBlocked?'—':money(sum[key])+'원';
@@ -28,7 +69,7 @@ function renderMiniLedgers(){
   $('miniFilterHelp'+i).textContent=miniFilters[i]==='opening'?'이월금은 이전 모든 달의 수입에서 지출을 뺀 금액이에요. 아래 기록을 수정하거나 이전 달 기록을 추가하세요.':'아래 기록을 수정하면 해당 합계와 월말 잔액도 바뀌어요.';
   $('miniFilterReset'+i).hidden=miniFilters[i]==='all';$('miniFilteredAdd'+i).hidden=miniFilters[i]==='all';$('miniFilteredAdd'+i).disabled=storageBlocked||(miniFilters[i]==='opening'&&month==='1900-01');
   for(const key of ['opening','income','expense'])$('miniEdit'+key+i).disabled=storageBlocked;
-  const list=$('miniRows'+i);list.replaceChildren();if(!rows.length)list.append(node('li',miniFilters[i]==='all'?'이번 달 기록이 없어요. 지난달 잔액은 그대로 이어져요.':'해당 기록이 없어요. 기록 추가로 입력할 수 있어요.','mini-empty'));
+  const list=$('miniRows'+i);list.replaceChildren();const adjustment=book.adjustments?.[month];if(adjustment){for(const [key,label] of [['opening','이월금'],['income','수입'],['expense','지출']])if(adjustment[key])list.append(node('li',label+' 직접 수정분: '+(adjustment[key]>0?'+':'')+money(adjustment[key])+'원','mini-empty'));}if(!rows.length&&!adjustment)list.append(node('li',miniFilters[i]==='all'?'이번 달 기록이 없어요. 지난달 잔액은 그대로 이어져요.':'해당 기록이 없어요. 기록 추가로 입력할 수 있어요.','mini-empty'));
   for(const r of [...rows].sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id))){
    const row=node('li',undefined,'mini-row'),info=node('div'),buttons=node('div',undefined,'row-actions');
    info.append(node('span',r.date,'muted'),node('strong',(r.type==='income'?'입금 +':'출금 −')+money(r.amount)+'원',r.type));
@@ -49,6 +90,8 @@ function addMiniFilteredEntry(index){
  if(kind==='opening'){f.elements.date.value=shiftDate(month+'-01','day',-1);f.elements.memo.value='이월금 조정';}
 }
 function initMiniLedgers(){
+ $('miniTotalCancel').onclick=()=>{$('miniTotalDialog').close();miniTotalEditing=null;};
+ $('miniTotalForm').onsubmit=e=>{e.preventDefault();try{saveMiniTotal($('miniTotalAmount').value);$('miniTotalDialog').close();toast('금액을 수정했습니다.');}catch(err){$('miniTotalError').textContent=err.message;}};
  const grid=$('miniGrid');
  for(let i=0;i<6;i++){
   const card=node('article',undefined,'mini-card'),head=node('div',undefined,'mini-head'),title=node('h4');title.id='miniName'+i;
