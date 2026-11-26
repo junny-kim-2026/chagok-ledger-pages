@@ -79,24 +79,24 @@ function initDialogVisibility(){
 
 let recordView='period';
 const openRecordMonths=new Set();
-function groupRecordMonths(rows){
+function groupRecordMonths(rows,yearly=false){
  const groups=new Map();
- for(const r of [...rows].sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id))){const month=r.date.slice(0,7);if(!groups.has(month))groups.set(month,[]);groups.get(month).push(r);}
+ for(const r of [...rows].sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id))){const month=r.date.slice(0,yearly?4:7);if(!groups.has(month))groups.set(month,[]);groups.get(month).push(r);}
  return [...groups].map(([month,rows])=>({month,rows,...totals(rows)}));
 }
 function renderRecordMonths(){
- const monthly=recordView==='months';
+ const yearly=recordView==='years',monthly=recordView!=='period';
  $('periodRecords').hidden=monthly;$('monthRecords').hidden=!monthly;
- $('viewPeriodRecords').setAttribute('aria-pressed',String(!monthly));$('viewMonthRecords').setAttribute('aria-pressed',String(monthly));
- $('searchHelp').textContent=monthly?'모든 달의 항목과 메모를 찾아요. 위의 합계와 그래프는 선택 기간 기준입니다.':'선택한 기간 안에서 항목과 메모를 찾아요. 위의 합계와 그래프는 선택 기간 전체 기준입니다.';
+ $('viewPeriodRecords').setAttribute('aria-pressed',String(!monthly));$('viewMonthRecords').setAttribute('aria-pressed',String(recordView==='months'));$('viewYearRecords').setAttribute('aria-pressed',String(yearly));
+ $('searchHelp').textContent=monthly?'모든 기록의 항목과 메모를 찾아요. 위의 합계와 그래프는 선택 기간 기준입니다.':'선택한 기간 안에서 항목과 메모를 찾아요. 위의 합계와 그래프는 선택 기간 전체 기준입니다.';
  if(!monthly)return;
- const query=$('search').value,filtered=searchRows(entries,query),groups=groupRecordMonths(filtered);
- $('recordPeriod').textContent='전체 월별 목록';$('count').textContent=filtered.length;
- $('searchStatus').textContent=storageBlocked?'':query.trim()?'검색 결과 '+filtered.length+'건 / 전체 '+entries.length+'건':'전체 '+groups.length+'개월 · '+entries.length+'건';
+ const query=$('search').value,filtered=searchRows(entries,query),groups=groupRecordMonths(filtered,yearly);
+ $('recordPeriod').textContent=yearly?'전체 연도별 목록':'전체 월별 목록';$('count').textContent=filtered.length;
+ $('searchStatus').textContent=storageBlocked?'':query.trim()?'검색 결과 '+filtered.length+'건 / 전체 '+entries.length+'건':'전체 '+groups.length+(yearly?'개 연도 · ':'개월 · ')+entries.length+'건';
  $('monthRecords').replaceChildren();
  if(!groups.length){$('monthRecords').append(node('p',storageBlocked?'기록을 확인할 수 없습니다.':query.trim()?'검색 결과가 없어요.':'아직 기록이 없어요. 내역을 추가해 보세요.','empty-note'));return;}
  for(const group of groups){
-  const details=node('details',undefined,'record-month'),summary=node('summary'),caption=node('span',Number(group.month.slice(0,4))+'년 '+Number(group.month.slice(5))+'월 · '+group.rows.length+'건','record-month-title');
+  const details=node('details',undefined,'record-month'),summary=node('summary'),caption=node('span',Number(group.month.slice(0,4))+'년'+(yearly?'':' '+Number(group.month.slice(5))+'월')+' · '+group.rows.length+'건','record-month-title');
   summary.append(caption,node('span','수입 '+money(group.income)+'원 · 지출 '+money(group.expense)+'원','record-month-totals'));
   details.open=openRecordMonths.has(group.month);details.ontoggle=()=>{if(!details.isConnected)return;if(details.open)openRecordMonths.add(group.month);else openRecordMonths.delete(group.month);};
   const wrap=node('div',undefined,'table-scroll'),table=node('table'),head=node('thead'),headRow=node('tr'),body=node('tbody');
@@ -108,6 +108,7 @@ function renderRecordMonths(){
 function initRecordViews(){
  $('viewPeriodRecords').onclick=()=>{recordView='period';render();};
  $('viewMonthRecords').onclick=()=>{recordView='months';render();};
+ $('viewYearRecords').onclick=()=>{recordView='years';render();};
 }
 
 function initRecordDisclosure(){
@@ -116,7 +117,7 @@ function initRecordDisclosure(){
  const revealHash=()=>{if(window.location?.hash==="#records")reveal();};
  window.addEventListener("hashchange",revealHash);revealHash();
 }
-function init(){initRecordViews();initRecordDisclosure();initDialogVisibility();initDialogScrollButtons();initMiniLedgers();initNotes();initRecurring();const f=$('form');CATEGORIES.forEach(c=>f.elements.category.append(node('option',c)));load();render();$('search').oninput=()=>render();$('clearSearch').onclick=()=>{$('search').value='';render();$('search').focus();};$('add').onclick=()=>openEntry();document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{mode=b.dataset.mode;render();});$('prev').onclick=()=>{date=shiftDate(date,mode,-1);render();};$('next').onclick=()=>{date=shiftDate(date,mode,1);render();};$('today').onclick=()=>{date=today();render();};$('jump').onchange=e=>{const next=jumpDate(e.target.value,mode);if(next){date=next;render();}else{toast('1900년부터 2100년까지의 날짜를 선택해 주세요.');render();}};f.querySelectorAll('[name=type]').forEach(r=>r.onchange=()=>{f.elements.category.value=f.elements.type.value==='income'?'급여':'식비';});$('cancel').onclick=()=>$('entryDialog').close();f.elements.amount.oninput=()=>formatAmountInput(f.elements.amount);f.onsubmit=e=>{e.preventDefault();try{const r=validateEntry({id:editing||(globalThis.crypto?.randomUUID?.()||Date.now().toString(36)+'-'+Math.random().toString(36).slice(2)),date:f.elements.date.value,type:f.elements.type.value,amount:parseAmount(f.elements.amount.value),category:f.elements.category.value,memo:f.elements.memo.value.trim()});commit([...entries.filter(x=>x.id!==r.id),r]);date=r.date;openRecordMonths.add(r.date.slice(0,7));$("recordDetails").open=true;if(editing)$('search').value='';render();$('formError').textContent='';if(e.submitter?.id==='saveAnother'&&!editing){f.elements.amount.value='';f.elements.memo.value='';f.elements.amount.focus();toast('저장했습니다. 다음 내역을 입력해 주세요.');}else{$('entryDialog').close();toast(editing?'기록을 수정했습니다.':'기록을 저장했습니다.');}}catch(err){$('formError').textContent=err.message;}};
+function init(){initRecordViews();initRecordDisclosure();initDialogVisibility();initDialogScrollButtons();initMiniLedgers();initNotes();initRecurring();const f=$('form');CATEGORIES.forEach(c=>f.elements.category.append(node('option',c)));load();render();$('search').oninput=()=>render();$('clearSearch').onclick=()=>{$('search').value='';render();$('search').focus();};$('add').onclick=()=>openEntry();document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{mode=b.dataset.mode;render();});$('prev').onclick=()=>{date=shiftDate(date,mode,-1);render();};$('next').onclick=()=>{date=shiftDate(date,mode,1);render();};$('today').onclick=()=>{date=today();render();};$('jump').onchange=e=>{const next=jumpDate(e.target.value,mode);if(next){date=next;render();}else{toast('1900년부터 2100년까지의 날짜를 선택해 주세요.');render();}};f.querySelectorAll('[name=type]').forEach(r=>r.onchange=()=>{f.elements.category.value=f.elements.type.value==='income'?'급여':'식비';});$('cancel').onclick=()=>$('entryDialog').close();f.elements.amount.oninput=()=>formatAmountInput(f.elements.amount);f.onsubmit=e=>{e.preventDefault();try{const r=validateEntry({id:editing||(globalThis.crypto?.randomUUID?.()||Date.now().toString(36)+'-'+Math.random().toString(36).slice(2)),date:f.elements.date.value,type:f.elements.type.value,amount:parseAmount(f.elements.amount.value),category:f.elements.category.value,memo:f.elements.memo.value.trim()});commit([...entries.filter(x=>x.id!==r.id),r]);date=r.date;openRecordMonths.add(r.date.slice(0,7));openRecordMonths.add(r.date.slice(0,4));$("recordDetails").open=true;if(editing)$('search').value='';render();$('formError').textContent='';if(e.submitter?.id==='saveAnother'&&!editing){f.elements.amount.value='';f.elements.memo.value='';f.elements.amount.focus();toast('저장했습니다. 다음 내역을 입력해 주세요.');}else{$('entryDialog').close();toast(editing?'기록을 수정했습니다.':'기록을 저장했습니다.');}}catch(err){$('formError').textContent=err.message;}};
  $('cancelConfirm').onclick=()=>{confirmAction=null;$('confirmDialog').close();};$('acceptConfirm').onclick=()=>{try{confirmAction?.();confirmAction=null;$('confirmDialog').close();}catch(err){$('confirmError').textContent=err.message;}};$('backup').onclick=()=>{download(JSON.stringify(envelope(entries),null,2),'chagok-backup-'+today()+'.json');toast('백업 다운로드를 요청했습니다. 다운로드 폴더를 확인해 주세요.');};$('restore').onclick=()=>$('restoreFile').click();$('restoreFile').onchange=async e=>{const file=e.target.files[0];e.target.value='';if(!file)return;try{if(file.size>25000000)throw Error('25MB 이하 파일만 복원할 수 있습니다.');const data=JSON.parse(await file.text()),restored=validateData(data),fixed=validateRecurringData(data),notes=validateNotes(data),minis=validateMiniLedgers(data);ask('백업으로 교체할까요?',`현재 거래 ${entries.length}건과 고정 지출 ${recurring.length}개를 백업의 거래 ${restored.length}건과 고정 지출 ${fixed.length}개로 교체합니다. 월별 메모도 백업의 ${Object.keys(notes).length}개월 분으로 교체됩니다. 미니 가계부 6개도 백업 내용으로 교체됩니다(예전 백업에 없는 가계부는 빈 상태로 바뀝니다). 필요한 기존 기록은 먼저 백업하세요.`,()=>{commit(restored,{restore:true,fixed,notes,minis});toast('백업을 복원했습니다.');});}catch(err){toast('복원하지 않았습니다. '+(err instanceof SyntaxError?'파일 형식을 확인해 주세요.':err.message));}};window.addEventListener('storage',e=>{if(e.key===KEY||e.key===null){load();render();toast('다른 창의 변경 사항을 반영했습니다.');}});}
 
 // Recurring templates and transactions are saved together to prevent partial writes.

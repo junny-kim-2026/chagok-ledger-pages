@@ -1,7 +1,7 @@
 'use strict';
 // Change this version whenever any shell asset changes. Do not cache user backups.
-const CACHE='chagok-app-shell-20261126-v1';
-const ASSETS=['./','./index.html','./style.css?v=20261126-monthly','./notes.js?v=20261104-mini-four','./mini.js?v=20261126-monthly','./app.js?v=20261124-month-list','./install.js?v=20261125-app','./favicon.svg','./manifest.webmanifest','./icons/icon-192.png','./icons/icon-512.png','./icons/apple-touch-icon.png'];
+const CACHE='chagok-app-shell-20261126-v2';
+const ASSETS=['./','./index.html','./style.css?v=20261126-mini-edit','./notes.js?v=20261104-mini-four','./mini.js?v=20261126-mini-edit','./app.js?v=20261126-year-list','./install.js?v=20261125-app','./favicon.svg','./manifest.webmanifest','./icons/icon-192.png','./icons/icon-512.png','./icons/apple-touch-icon.png'];
 const URLS=new Set(ASSETS.map(path=>new URL(path,self.registration.scope).href));
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)));});
 self.addEventListener('activate',event=>{event.waitUntil((async()=>{
