@@ -2,6 +2,9 @@
 function emptyMiniLedgers(){return Array.from({length:6},(_,i)=>({name:'미니 가계부 '+(i+1),entries:[]}));}
 let miniLedgers=emptyMiniLedgers(),miniBook=0,miniEditing=null;
 const miniMonths=Array(6).fill('');
+const miniFilters=Array(6).fill('all');
+function miniEditRows(rows,month,kind){return rows.filter(r=>kind==='opening'?r.date<month+'-01':r.date.startsWith(month)&&(kind==='all'||r.type===kind));}
+function showMiniAmountEditor(index,kind){miniFilters[index]=kind;renderMiniLedgers();$('miniDetails'+index).open=true;$('miniCount'+index).focus();}
 function miniSelectedMonth(index){return miniMonths[index]||today().slice(0,7);}
 function miniMonthBalance(rows,month){return periodBalance(rows,'month',month+'-01');}
 function selectMiniMonth(index,month){if(!validDate(month+'-01'))return;miniMonths[index]=month;renderMiniLedgers();}
@@ -17,12 +20,15 @@ function saveMiniBook(index,book){
 }
 function renderMiniLedgers(){
  miniLedgers.forEach((book,i)=>{
-  $('miniName'+i).textContent=book.name;const month=miniSelectedMonth(i),sum=miniMonthBalance(book.entries,month),rows=periodRows(book.entries,'month',month+'-01');
+  $('miniName'+i).textContent=book.name;const month=miniSelectedMonth(i),sum=miniMonthBalance(book.entries,month),rows=miniEditRows(book.entries,month,miniFilters[i]);
   $('miniMonth'+i).value=month;$('miniopening'+i).textContent=storageBlocked?'—':money(sum.opening)+'원';
   $('miniPrev'+i).disabled=month==='1900-01';$('miniNext'+i).disabled=month==='2100-12';
   for(const key of ['income','expense','balance'])$('mini'+key+i).textContent=storageBlocked?'—':money(sum[key])+'원';
-  $('miniAdd'+i).disabled=$('miniRename'+i).disabled=storageBlocked;$('miniCount'+i).textContent=Number(month.slice(5))+'월 수입·지출 내역 '+rows.length+'건';
-  const list=$('miniRows'+i);list.replaceChildren();if(!rows.length)list.append(node('li','이번 달 기록이 없어요. 지난달 잔액은 그대로 이어져요.','mini-empty'));
+  $('miniAdd'+i).disabled=$('miniRename'+i).disabled=storageBlocked;$('miniCount'+i).textContent=(miniFilters[i]==='opening'?'전월 이월금에 포함된 이전 기록':Number(month.slice(5))+'월 '+(miniFilters[i]==='income'?'수입':miniFilters[i]==='expense'?'지출':'수입·지출'))+' 내역 '+rows.length+'건';
+  $('miniFilterHelp'+i).textContent=miniFilters[i]==='opening'?'이월금은 이전 모든 달의 수입에서 지출을 뺀 금액이에요. 아래 기록을 수정하거나 이전 달 기록을 추가하세요.':'아래 기록을 수정하면 해당 합계와 월말 잔액도 바뀌어요.';
+  $('miniFilterReset'+i).hidden=miniFilters[i]==='all';$('miniFilteredAdd'+i).hidden=miniFilters[i]==='all';$('miniFilteredAdd'+i).disabled=storageBlocked||(miniFilters[i]==='opening'&&month==='1900-01');
+  for(const key of ['opening','income','expense'])$('miniEdit'+key+i).disabled=storageBlocked;
+  const list=$('miniRows'+i);list.replaceChildren();if(!rows.length)list.append(node('li',miniFilters[i]==='all'?'이번 달 기록이 없어요. 지난달 잔액은 그대로 이어져요.':'해당 기록이 없어요. 기록 추가로 입력할 수 있어요.','mini-empty'));
   for(const r of [...rows].sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id))){
    const row=node('li',undefined,'mini-row'),info=node('div'),buttons=node('div',undefined,'row-actions');
    info.append(node('span',r.date,'muted'),node('strong',(r.type==='income'?'입금 +':'출금 −')+money(r.amount)+'원',r.type));
@@ -35,6 +41,12 @@ function renderMiniLedgers(){
 }
 function openMiniEntry(index,entry){
  miniBook=index;miniEditing=entry?.id||null;const f=$('miniForm');f.reset();f.elements.type.value=entry?.type||'expense';f.elements.amount.value=entry?money(entry.amount):'';f.elements.date.value=entry?.date||(miniSelectedMonth(index)===today().slice(0,7)?today():miniSelectedMonth(index)+'-01');f.elements.memo.value=entry?.memo||'';$('miniEntryTitle').textContent=miniLedgers[index].name+' · '+(entry?'내역 수정':'입출금 기록');$('miniError').textContent='';$('miniSave').textContent=entry?'수정 내용 저장':'저장';$('miniDialog').showModal();if(entry)f.elements.amount.focus();else $('miniEntryTitle').focus();
+}
+function addMiniFilteredEntry(index){
+ const kind=miniFilters[index],month=miniSelectedMonth(index);
+ if(kind==='opening'&&month==='1900-01')return;
+ openMiniEntry(index);const f=$('miniForm');f.elements.type.value=kind==='expense'?'expense':'income';
+ if(kind==='opening'){f.elements.date.value=shiftDate(month+'-01','day',-1);f.elements.memo.value='이월금 조정';}
 }
 function initMiniLedgers(){
  const grid=$('miniGrid');
@@ -49,11 +61,11 @@ function initMiniLedgers(){
   prev.onclick=()=>selectMiniMonth(i,shiftDate(miniSelectedMonth(i)+'-01','month',-1).slice(0,7));next.onclick=()=>selectMiniMonth(i,shiftDate(miniSelectedMonth(i)+'-01','month',1).slice(0,7));current.onclick=()=>selectMiniMonth(i,today().slice(0,7));
   label.append(input);picker.append(prev,label,next,current);
   const summary=node('dl',undefined,'mini-summary');
-  for(const [key,label] of [['opening','전월 이월금'],['income','이번 달 수입'],['expense','이번 달 지출'],['balance','월말 잔액']]){const group=node('div',undefined,key),value=node('dd');value.id='mini'+key+i;group.append(node('dt',label),value);summary.append(group);}
+  for(const [key,label] of [['opening','전월 이월금'],['income','이번 달 수입'],['expense','이번 달 지출'],['balance','월말 잔액']]){const group=node('div',undefined,key),value=node('dd');value.id='mini'+key+i;const term=node('dt',label);if(key!=='balance'){const editAmount=node('button','수정','mini-total-edit');editAmount.id='miniEdit'+key+i;editAmount.setAttribute('aria-label',label+' 수정');editAmount.onclick=()=>showMiniAmountEditor(i,key);term.append(editAmount);}group.append(term,value);summary.append(group);}
   const add=node('button','＋ 입출금 기록','primary');add.id='miniAdd'+i;add.onclick=()=>openMiniEntry(i);
-  const details=node('details'),caption=node('summary'),list=node('ul',undefined,'mini-rows');details.id='miniDetails'+i;caption.id='miniCount'+i;caption.tabIndex=0;list.id='miniRows'+i;details.append(caption,node('p','바꾸려는 기록의 수입 수정 또는 지출 수정을 누르세요. 전월 이월금은 이전 달 기록을 수정하면 함께 바뀌어요.','mini-carry-help'),list);const editList=node('button','내역 수정','mini-edit-shortcut');editList.id='miniEditList'+i;editList.setAttribute('aria-controls',details.id);editList.onclick=()=>{details.open=true;caption.focus();};card.append(head,picker,summary,node('p','월말 잔액 = 전월 이월금 + 이번 달 수입 − 지출','mini-carry-help'),add,editList,details);grid.append(card);
+  const details=node('details'),caption=node('summary'),list=node('ul',undefined,'mini-rows');details.id='miniDetails'+i;caption.id='miniCount'+i;caption.tabIndex=0;list.id='miniRows'+i;const help=node('p',undefined,'mini-carry-help'),reset=node('button','이번 달 전체 내역'),filteredAdd=node('button','＋ 기록 추가');help.id='miniFilterHelp'+i;reset.id='miniFilterReset'+i;filteredAdd.id='miniFilteredAdd'+i;reset.onclick=()=>showMiniAmountEditor(i,'all');filteredAdd.onclick=()=>addMiniFilteredEntry(i);details.append(caption,help,reset,filteredAdd,list);const editList=node('button','내역 수정','mini-edit-shortcut');editList.id='miniEditList'+i;editList.setAttribute('aria-controls',details.id);editList.onclick=()=>showMiniAmountEditor(i,'all');card.append(head,picker,summary,node('p','월말 잔액 = 전월 이월금 + 이번 달 수입 − 지출','mini-carry-help'),add,editList,details);grid.append(card);
  }
  const f=$('miniForm');f.elements.amount.oninput=()=>formatAmountInput(f.elements.amount);$('miniCancel').onclick=()=>$('miniDialog').close();
- f.onsubmit=e=>{e.preventDefault();try{const book=miniLedgers[miniBook];if(miniEditing&&!book.entries.some(v=>v.id===miniEditing))throw Error('이 내역이 다른 창에서 삭제되었습니다. 취소 후 목록을 확인해 주세요.');const r=validateEntry({id:miniEditing||(globalThis.crypto?.randomUUID?.()||Date.now().toString(36)+'-'+Math.random().toString(36).slice(2)),type:f.elements.type.value,amount:parseAmount(f.elements.amount.value),date:f.elements.date.value,category:'기타',memo:f.elements.memo.value.trim()});saveMiniBook(miniBook,{...book,entries:[...book.entries.filter(v=>v.id!==r.id),r]});miniMonths[miniBook]=r.date.slice(0,7);renderMiniLedgers();$('miniDetails'+miniBook).open=true;$('miniDialog').close();toast(book.name+(miniEditing?'의 내역을 수정했습니다.':'에 저장했습니다.'));}catch(err){$('miniError').textContent=err.message;}};
+ f.onsubmit=e=>{e.preventDefault();try{const book=miniLedgers[miniBook];if(miniEditing&&!book.entries.some(v=>v.id===miniEditing))throw Error('이 내역이 다른 창에서 삭제되었습니다. 취소 후 목록을 확인해 주세요.');const r=validateEntry({id:miniEditing||(globalThis.crypto?.randomUUID?.()||Date.now().toString(36)+'-'+Math.random().toString(36).slice(2)),type:f.elements.type.value,amount:parseAmount(f.elements.amount.value),date:f.elements.date.value,category:'기타',memo:f.elements.memo.value.trim()});saveMiniBook(miniBook,{...book,entries:[...book.entries.filter(v=>v.id!==r.id),r]});if(miniFilters[miniBook]!=='opening')miniMonths[miniBook]=r.date.slice(0,7);if(miniFilters[miniBook]==='income'||miniFilters[miniBook]==='expense')miniFilters[miniBook]=r.type;renderMiniLedgers();$('miniDetails'+miniBook).open=true;$('miniDialog').close();toast(book.name+(miniEditing?'의 내역을 수정했습니다.':'에 저장했습니다.'));}catch(err){$('miniError').textContent=err.message;}};
  $('miniNameCancel').onclick=()=>$('miniNameDialog').close();$('miniNameForm').onsubmit=e=>{e.preventDefault();try{saveMiniBook(miniBook,{...miniLedgers[miniBook],name:$('miniNameInput').value.trim()});$('miniNameDialog').close();toast('미니 가계부 이름을 변경했습니다.');}catch(err){$('miniNameError').textContent=err.message;}};
 }
